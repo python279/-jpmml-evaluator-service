@@ -19,7 +19,6 @@ import java.util.function.Function;
 
 public class JpmmlMeta {
     private final File model;
-    private final String name;
     private final String version;
     private final String baseVersion;
     private final Header header;
@@ -30,7 +29,6 @@ public class JpmmlMeta {
 
     JpmmlMeta(
             File model,
-            String name,
             String version,
             String baseVersion,
             Header header,
@@ -39,7 +37,6 @@ public class JpmmlMeta {
             List<TargetField> targetFields,
             List<OutputField> outputFields) {
         this.model = model;
-        this.name = name;
         this.version = version;
         this.baseVersion = baseVersion;
         this.header = header;
@@ -51,10 +48,6 @@ public class JpmmlMeta {
 
     public File getModel() {
         return this.model;
-    }
-
-    public String getName() {
-        return this.name;
     }
 
     public String getVersion() {

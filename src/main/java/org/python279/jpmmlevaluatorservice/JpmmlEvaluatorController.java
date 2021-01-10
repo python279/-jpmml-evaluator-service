@@ -57,7 +57,6 @@ import org.slf4j.LoggerFactory;
 @RestController
 public class JpmmlEvaluatorController {
     private File model;
-    private String name;
     private PMML pmml;
     private Evaluator evaluator;
     private List<InputField> inputFields;
@@ -77,8 +76,8 @@ public class JpmmlEvaluatorController {
 
 
     JpmmlEvaluatorController() throws Exception {
-        this.model = new File(System.getenv("PMML_PATH"));
-        this.name = System.getenv("PMML_NAME");
+        String pmmlPath = System.getenv("PMML_PATH");
+        this.model = new File(pmmlPath != null ? pmmlPath : "XGBoostAudit.pmml");
         this.pmml = JpmmlUtils.readPMML(this.model);
 
         VisitorBattery visitorBattery = new VisitorBattery();
@@ -165,7 +164,6 @@ public class JpmmlEvaluatorController {
                     JpmmlEvaluatorResponseCode.SUCCESS,
                     new JpmmlMeta(
                             this.model,
-                            this.name,
                             this.pmml.getVersion(),
                             this.pmml.getBaseVersion(),
                             this.pmml.getHeader(),
