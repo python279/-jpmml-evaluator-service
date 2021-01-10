@@ -48,6 +48,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.EnableCaching;
 import org.slf4j.Logger;
@@ -75,7 +76,7 @@ public class JpmmlEvaluatorController {
     private static final Logger log = LoggerFactory.getLogger(JpmmlEvaluatorController.class);
 
 
-    JpmmlEvaluatorController() throws Exception {
+    public JpmmlEvaluatorController() throws Exception {
         String pmmlPath = System.getenv("PMML_PATH");
         this.model = new File(pmmlPath != null ? pmmlPath : "XGBoostAudit.pmml");
         this.pmml = JpmmlUtils.readPMML(this.model);
@@ -143,7 +144,7 @@ public class JpmmlEvaluatorController {
         this.evaluator = evaluatorBuilder.build();
 
         // Perform self-testing
-        evaluator.verify();
+        //evaluator.verify();
 
         this.inputFields = evaluator.getInputFields();
         this.groupFields = Collections.emptyList();
@@ -158,9 +159,10 @@ public class JpmmlEvaluatorController {
     }
 
     @GetMapping("/meta")
-    public JpmmlEvaluatorResponse<JpmmlMeta> meta() throws Exception {
+    public JpmmlEvaluatorResponse<JpmmlMeta> meta() {
         try {
             return new JpmmlEvaluatorResponse<JpmmlMeta>(
+                    null,
                     JpmmlEvaluatorResponseCode.SUCCESS,
                     new JpmmlMeta(
                             this.model,
@@ -175,6 +177,28 @@ public class JpmmlEvaluatorController {
             );
         } catch(Exception ex) {
             return new JpmmlEvaluatorResponse<JpmmlMeta>(
+                    null,
+                    JpmmlEvaluatorResponseCode.ERROR,
+                    ex.getMessage(),
+                    null
+            );
+        }
+    }
+
+    @PostMapping("/single")
+    public JpmmlEvaluatorResponse<Map<String, Double>> single(@RequestBody JpmmlEvaluatorRequest<Map<String, Object>> request) {
+        try {
+            Map<FieldName, FieldValue> arguments = JpmmlUtils.getFieldArgumentMap(request.getData(), this.inputFields);
+            Map<FieldName, ?> results = this.evaluator.evaluate(arguments);
+
+            return new JpmmlEvaluatorResponse(
+                    request.getId(),
+                    JpmmlEvaluatorResponseCode.SUCCESS,
+                    JpmmlUtils.getOutputResultMap(this.outputFields, results)
+            );
+        } catch(Exception ex) {
+            return new JpmmlEvaluatorResponse(
+                    request.getId(),
                     JpmmlEvaluatorResponseCode.ERROR,
                     ex.getMessage(),
                     null

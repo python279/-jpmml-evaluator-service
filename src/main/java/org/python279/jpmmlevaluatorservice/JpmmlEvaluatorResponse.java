@@ -6,23 +6,34 @@ import org.jpmml.evaluator.TargetField;
 
 import java.io.File;
 import java.util.List;
+import java.sql.Timestamp;
 
 
 public class JpmmlEvaluatorResponse<T> {
+    private String id;
+    private Timestamp timestamp;
     private JpmmlEvaluatorResponseCode code;
     private String msg;
     private T data;
 
-    JpmmlEvaluatorResponse(JpmmlEvaluatorResponseCode code, T data) {
-        this.code = code;
-        this.msg = code.toString();
-        this.data = data;
+    public JpmmlEvaluatorResponse(String id, JpmmlEvaluatorResponseCode code, T data) {
+        this(id, code, code.toString(), data);
     }
 
-    JpmmlEvaluatorResponse(JpmmlEvaluatorResponseCode code, String msg, T data) {
+    public JpmmlEvaluatorResponse(String id, JpmmlEvaluatorResponseCode code, String msg, T data) {
+        this.id = id;
+        this.timestamp = new Timestamp(System.currentTimeMillis());
         this.code = code;
         this.msg = msg;
         this.data = data;
+    }
+
+    public String getId() {
+        return this.id;
+    }
+
+    public Timestamp getTimestamp() {
+        return this.timestamp;
     }
 
     public int getCode() {

@@ -8,12 +8,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.net.URL;
-import java.util.Collection;
+import java.util.*;
 import java.util.function.Function;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+import com.google.common.collect.Sets;
+import org.dmg.pmml.FieldName;
 import org.dmg.pmml.PMML;
+import org.jpmml.evaluator.*;
 import org.jpmml.evaluator.EvaluatorUtil;
 import org.jpmml.evaluator.testing.CsvUtil;
 import org.jpmml.model.PMMLUtil;
@@ -129,6 +132,62 @@ public class JpmmlUtils {
         };
 
         return function;
+    }
+
+    public static Map<FieldName, ?> convertInputRecord(Map<String, Object> inputRecord) {
+        Map<FieldName, Object> outputRecord = new HashMap<FieldName, Object>();
+        for (Map.Entry<String, ?> input : inputRecord.entrySet()) {
+            FieldName featureFieldName = FieldName.create(input.getKey());
+            outputRecord.put(featureFieldName, input.getValue());
+        }
+        return outputRecord;
+    }
+
+    public static void
+    checkInputArgument(Map<FieldName, ?> inputRecord, List<InputField> inputFields) {
+        LinkedHashSet<FieldName> inputFieldsName = new LinkedHashSet<FieldName>();
+        for (InputField inputField : inputFields) {
+            inputFieldsName.add(inputField.getFieldName());
+        }
+        Sets.SetView<FieldName> missingInputFields
+                = Sets.difference(inputFieldsName, inputRecord.keySet());
+        if (missingInputFields.size() > 0) {
+            throw new IllegalArgumentException("Missing input field(s): " + missingInputFields.toString());
+        }
+    }
+
+    public static Map<FieldName, FieldValue>
+    getFieldArgumentMap(Map<String, Object> input, List<InputField> inputFields) {
+        Map<FieldName, ?> inputData = convertInputRecord(input);
+        checkInputArgument(inputData, inputFields);
+
+        Map<FieldName, FieldValue> arguments = new HashMap<FieldName, FieldValue>();
+        for (InputField inputField : inputFields) {
+            FieldName name = inputField.getName();
+            FieldValue value = inputField.prepare(inputData.get(name));
+            arguments.put(name, value);
+        }
+        return arguments;
+    }
+
+    public static Map<String, Double>
+    getOutputResultMap(List<OutputField> outputFields, Map<FieldName, ?> results) {
+        Map<String, Double> retResult = new HashMap<String, Double>();
+        for (OutputField outputField : outputFields) {
+            FieldName outputFieldName = outputField.getName();
+            Object outputFieldValue = results.get(outputFieldName);
+
+            double result = Double.MIN_VALUE;
+            if (outputFieldValue instanceof Computable) {
+                Computable computable = (Computable) outputFieldValue;
+                Object unboxedOutputFieldValue = computable.getResult();
+                result = Double.parseDouble(unboxedOutputFieldValue.toString());
+            } else {
+                result = Double.parseDouble(outputFieldValue.toString());
+            }
+            retResult.put(outputFieldName.toString(), result);
+        }
+        return retResult;
     }
 
     static
