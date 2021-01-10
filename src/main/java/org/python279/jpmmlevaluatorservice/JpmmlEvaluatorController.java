@@ -51,6 +51,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.EnableCaching;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -185,16 +187,67 @@ public class JpmmlEvaluatorController {
         }
     }
 
+    private List<Map<FieldName, ?>>JpmmlEvaluatorExecute(List<Map<FieldName, ?>> inputRecords) {
+        if(!inputRecords.isEmpty()){
+            Map<FieldName, ?> inputRecord = inputRecords.get(0);
+
+            Sets.SetView<FieldName> missingInputFields = Sets.difference(new LinkedHashSet<>(Lists.transform(this.inputFields, InputField::getName)), inputRecord.keySet());
+            if(!missingInputFields.isEmpty() && !this.sparse){
+                throw new IllegalArgumentException("Missing input field(s): " + missingInputFields);
+            }
+
+            Sets.SetView<FieldName> missingGroupFields = Sets.difference(new LinkedHashSet<>(Lists.transform(this.groupFields, InputField::getName)), inputRecord.keySet());
+            if(!missingGroupFields.isEmpty()){
+                throw new IllegalArgumentException("Missing group field(s): " + missingGroupFields);
+            }
+        } // End if
+
+        if(this.evaluator instanceof HasGroupFields){
+            HasGroupFields hasGroupFields = (HasGroupFields)evaluator;
+            inputRecords = (List<Map<FieldName, ?>>)EvaluatorUtil.groupRows(hasGroupFields, inputRecords);
+        }
+
+        List<Map<FieldName, ?>> outputRecords = new ArrayList<>(inputRecords.size());
+        for (Map<FieldName, ?> inputRecord : inputRecords) {
+            Map<FieldName, FieldValue> arguments = JpmmlUtils.getFieldArgumentMap(inputRecord, this.inputFields);
+            outputRecords.add(this.evaluator.evaluate(arguments));
+        }
+        return outputRecords;
+    }
+
     @PostMapping("/single")
-    public JpmmlEvaluatorResponse<Map<String, Double>> single(@RequestBody JpmmlEvaluatorRequest<Map<String, Object>> request) {
+    public JpmmlEvaluatorResponse<List<Map<String, Double>>> single(@RequestBody JpmmlEvaluatorRequest<Map<String, Object>> request) {
         try {
-            Map<FieldName, FieldValue> arguments = JpmmlUtils.getFieldArgumentMap(request.getData(), this.inputFields);
-            Map<FieldName, ?> results = this.evaluator.evaluate(arguments);
+            List<Map<FieldName, ?>> inputRecords = new ArrayList<Map<FieldName, ?>>(1);
+            inputRecords.add(JpmmlUtils.convertInputRecord(request.getData()));
 
             return new JpmmlEvaluatorResponse(
                     request.getId(),
                     JpmmlEvaluatorResponseCode.SUCCESS,
-                    JpmmlUtils.getOutputResultMap(this.outputFields, results)
+                    JpmmlUtils.getOutputResultMap(this.outputFields, this.JpmmlEvaluatorExecute(inputRecords))
+            );
+        } catch(Exception ex) {
+            return new JpmmlEvaluatorResponse(
+                    request.getId(),
+                    JpmmlEvaluatorResponseCode.ERROR,
+                    ex.getMessage(),
+                    null
+            );
+        }
+    }
+
+    @PostMapping("/multi")
+    public JpmmlEvaluatorResponse<List<Map<String, Double>>> multi(@RequestBody JpmmlEvaluatorRequest<List<Map<String, Object>>> request) {
+        try {
+            List<Map<FieldName, ?>> inputRecords = new ArrayList<Map<FieldName, ?>>(request.getData().size());
+            for (Map<String, Object> req : request.getData()){
+                inputRecords.add(JpmmlUtils.convertInputRecord(req));
+            }
+
+            return new JpmmlEvaluatorResponse(
+                    request.getId(),
+                    JpmmlEvaluatorResponseCode.SUCCESS,
+                    JpmmlUtils.getOutputResultMap(this.outputFields, this.JpmmlEvaluatorExecute(inputRecords))
             );
         } catch(Exception ex) {
             return new JpmmlEvaluatorResponse(

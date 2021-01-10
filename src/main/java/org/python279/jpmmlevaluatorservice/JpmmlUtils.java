@@ -157,37 +157,40 @@ public class JpmmlUtils {
     }
 
     public static Map<FieldName, FieldValue>
-    getFieldArgumentMap(Map<String, Object> input, List<InputField> inputFields) {
-        Map<FieldName, ?> inputData = convertInputRecord(input);
-        checkInputArgument(inputData, inputFields);
+    getFieldArgumentMap(Map<FieldName, ?> input, List<InputField> inputFields) {
+        checkInputArgument(input, inputFields);
 
         Map<FieldName, FieldValue> arguments = new HashMap<FieldName, FieldValue>();
         for (InputField inputField : inputFields) {
             FieldName name = inputField.getName();
-            FieldValue value = inputField.prepare(inputData.get(name));
+            FieldValue value = inputField.prepare(input.get(name));
             arguments.put(name, value);
         }
         return arguments;
     }
 
-    public static Map<String, Double>
-    getOutputResultMap(List<OutputField> outputFields, Map<FieldName, ?> results) {
-        Map<String, Double> retResult = new HashMap<String, Double>();
-        for (OutputField outputField : outputFields) {
-            FieldName outputFieldName = outputField.getName();
-            Object outputFieldValue = results.get(outputFieldName);
+    public static List<Map<String, Double>>
+    getOutputResultMap(List<OutputField> outputFields, List<Map<FieldName, ?>> results) {
+        List<Map<String, Double>> retResults = new ArrayList<Map<String, Double>>(results.size());
+        for (Map<FieldName, ?> result : results) {
+            Map<String, Double> retResult = new HashMap<String, Double>();
+            for (OutputField outputField : outputFields) {
+                FieldName outputFieldName = outputField.getName();
+                Object outputFieldValue = result.get(outputFieldName);
 
-            double result = Double.MIN_VALUE;
-            if (outputFieldValue instanceof Computable) {
-                Computable computable = (Computable) outputFieldValue;
-                Object unboxedOutputFieldValue = computable.getResult();
-                result = Double.parseDouble(unboxedOutputFieldValue.toString());
-            } else {
-                result = Double.parseDouble(outputFieldValue.toString());
+                double r = Double.MIN_VALUE;
+                if (outputFieldValue instanceof Computable) {
+                    Computable computable = (Computable) outputFieldValue;
+                    Object unboxedOutputFieldValue = computable.getResult();
+                    r = Double.parseDouble(unboxedOutputFieldValue.toString());
+                } else {
+                    r = Double.parseDouble(outputFieldValue.toString());
+                }
+                retResult.put(outputFieldName.toString(), r);
             }
-            retResult.put(outputFieldName.toString(), result);
+            retResults.add(retResult);
         }
-        return retResult;
+        return retResults;
     }
 
     static
